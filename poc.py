@@ -19,6 +19,7 @@ def get_approved_bluerpint(project):
         raise Exception("Not a OpenStack project!")
     return [bp.name for bp in proj.valid_specifications]
 
+
 def get_invalid_blueprints(project, valid):
     lp = launchpad.Launchpad.login_anonymously('grabbing BPs',
                                                'production',
@@ -33,16 +34,17 @@ def get_invalid_blueprints(project, valid):
 
 def get_blueprint(message):
     """If no blueprint, return None."""
-    m = re.search('blueprint ([^\s.]*)', message)
+    #taken from jeepyb
+    m = re.search(r'\b(blueprint|bp)\b[ \t]*[#:]?[ \t]*([\S]+)', message, re.I)
     if not m:
         return None
     else:
-        return m.group(1)
+        return m.group(2)
 
 
 def get_unapproved_blueprint_patches(approved_blueprints, invalid_blueprints):
     """Return a list of patches with unapproved blueprints."""
-    result = {} #URL: BP
+    result = {}  # URL: BP
     gerrit = gerritlib.gerrit.Gerrit("review.openstack.org", "jogo", 29418)
     for patch in gerrit.bulk_query('--commit-message project:openstack/nova status:open'):
         msg = patch.get('commitMessage')
