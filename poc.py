@@ -52,8 +52,8 @@ def get_unapproved_blueprint_patches(approved_blueprints, invalid_blueprints):
             continue
         bp = get_blueprint(msg)
         if bp is not None:
-            if bp not in approved_blueprints:
-                if bp in invalid_blueprints:
+            if not (bp in approved_blueprints or (bp[-1:]=='.' and bp[:-1] in approved_blueprints)):
+                if bp in invalid_blueprints or (bp[-1:]=='.' and bp[:-1] in invalid_blueprints):
                     result[patch['url']]=bp
                 else:
                     result[patch['url']]=("%s (unknown)" % bp)
