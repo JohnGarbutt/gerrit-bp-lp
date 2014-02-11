@@ -168,7 +168,7 @@ def main():
     for bp in not_complete:
         print bp.web_link
         for patch in patches_by_blueprint[bp.name]:
-            print patch[url]
+            print "%s  open:%s status:%s" % (patch["url"], patch["open"], patch["status"])
 
     raise Exception()
 
