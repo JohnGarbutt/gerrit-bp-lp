@@ -86,20 +86,24 @@ def get_milestone_bluerpints(project="nova", series="icehouse", milestone="iceho
     print len(icehouse)
 
     not_approved = [bp for bp in icehouse if not bp.direction_approved]
+    print ""
     print "Unapproved blueprints:"
     print [bp.name for bp in not_approved]
 
     approved = [bp for bp in icehouse if bp.direction_approved]
+    print ""
     print "Approved blueprints:"
     print len(approved)
 
     complete = [bp for bp in approved if not bp.is_complete]
+    print ""
     print "Completed blueprints:"
     print len(complete)
     for bp in complete:
         print bp.web_link
 
     not_complete = [bp for bp in approved if not bp.is_complete]
+    print ""
     print "Not complete:"
     print len(not_complete)
 
