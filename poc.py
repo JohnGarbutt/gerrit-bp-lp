@@ -158,7 +158,7 @@ def main():
     print len(not_complete)
     print ""
     for bp in not_complete:
-        print bp.web_link
+        print "%s  status:%s" % (bp.web_link, bp.implementation_status)
         patches = patches_by_blueprint.get(bp.name)
         if not patches:
             print "No patches"
