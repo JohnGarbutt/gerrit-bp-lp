@@ -136,7 +136,7 @@ def get_blueprint_patches():
     """Return a list of patches with unapproved blueprints."""
     result = {}  # blueprint: [patches]
     gerrit = gerritlib.gerrit.Gerrit("review.openstack.org", GERRIT_USER, 29418)
-    for patch in gerrit.bulk_query('--commit-message project:openstack/nova status:open'):
+    for patch in gerrit.bulk_query('--commit-message project:openstack/nova'):
         msg = patch.get('commitMessage')
         if msg is None:
             continue
