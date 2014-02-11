@@ -149,24 +149,10 @@ def main():
 
     patches_by_blueprint = get_blueprint_patches()
 
-    pprint.pprint(patches_by_blueprint[patches_by_blueprint.keys()[0]])
-
-    no_patches = []
-    has_patches = []
-    for bp in not_complete:
-        name = bp.name
-        if name not in patches_by_blueprint:
-            no_patches.append(bp)
-        else:
-            has_patches.append(bp)
-
-    print ""
-    print "Not complete blueprint with no patches:"
-    for bp in not_complete:
-        print bp.web_link
-
     print ""
     print "Not complete blueprint with patches:"
+    print len(not_complete)
+    print ""
     for bp in not_complete:
         print bp.web_link
         patches = patches_by_blueprint.get(bp.name)
@@ -174,19 +160,9 @@ def main():
             print "No patches"
         else:
             for patch in patches:
-                print "%s  open:%s status:%s" % (patch["url"], patch["open"], patch["status"])
+                print "%s  open:%s status:%s subject:%s" % (patch["url"], patch["open"], patch["status"], patch["subject"])
+        print ""
 
-    raise Exception()
-
-
-    approved_blueprints = get_approved_bluerpint("nova")
-    pprint.pprint(approved_blueprints)
-    invalid_blueprints = get_invalid_blueprints("nova", approved_blueprints)
-    pprint.pprint(invalid_blueprints)
-    patches =  get_unapproved_blueprint_patches(approved_blueprints, invalid_blueprints)
-    print "patches with unapproved blueprints"
-    for k in patches:
-        print "%s: %s" % (k, patches[k])
 
 if __name__ == "__main__":
     main()
