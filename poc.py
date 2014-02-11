@@ -160,15 +160,21 @@ def main():
         else:
             has_patches.append(bp)
 
+    print ""
     print "Not complete blueprint with no patches:"
     for bp in not_complete:
         print bp.web_link
 
+    print ""
     print "Not complete blueprint with patches:"
     for bp in not_complete:
         print bp.web_link
-        for patch in patches_by_blueprint[bp.name]:
-            print "%s  open:%s status:%s" % (patch["url"], patch["open"], patch["status"])
+        patches = patches_by_blueprint.get(bp.name)
+        if not patches:
+            print "No patches"
+        else:
+            for patch in patches:
+                print "%s  open:%s status:%s" % (patch["url"], patch["open"], patch["status"])
 
     raise Exception()
 
