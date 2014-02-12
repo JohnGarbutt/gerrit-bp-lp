@@ -56,6 +56,22 @@ lp_entries
 ['release', 'series_target', 'target']
 lp_operations
 ['getTags', 'searchTasks', 'getSubscriptions', 'userHasBugSubscriptions', 'getSubscription', 'addBugSubscription', 'removeBugSubscription', 'createProductRelease', 'setTags', 'addBugSubscriptionFilter']
+
+{u'branch': u'master',
+ u'commitMessage': u'Add missed discoverable policy rules for flavor-manage v3...',
+ u'createdOn': 1390711568,
+ u'id': u'I2936c41da32ee4afe05494936fdcb3593829fb5c',
+ u'lastUpdated': 1392177468,
+ u'number': u'69168',
+ u'open': True,
+ u'owner': {u'email': u'xuhj@linux.vnet.ibm.com',
+            u'name': u'Alex Xu',
+            u'username': u'xuhj'},
+ u'project': u'openstack/nova',
+ u'sortKey': u'002b11ed00010e30',
+ u'status': u'NEW',
+ u'subject': u'Add missed discoverable policy rules for flavor-manage v3',
+ u'url': u'https://review.openstack.org/69168'}
 """
 def _inspect_object(obj):
     print "lp_attributes"
@@ -85,7 +101,6 @@ def get_milestone_bluerpints(project="nova", series="icehouse", milestone="iceho
     filename = "%s-%s-blueprints.txt" % (project, milestone)
     try:
         with open(filename, "r+b") as f:
-            print "Loading from cache file."
             return json.load(f)
     except:
         print "Cache could not load."
@@ -116,32 +131,12 @@ def get_milestone_bluerpints(project="nova", series="icehouse", milestone="iceho
 
 
 def split_up_blueprints(primitive_blueprints):
-    not_approved = [bp for bp in primitive_blueprints if not bp["direction_approved"]]
     approved = [bp for bp in primitive_blueprints if bp["direction_approved"]]
-
-    complete = [bp for bp in approved if not bp["is_complete"]]
+    not_approved = [bp for bp in primitive_blueprints if not bp["direction_approved"]]
+    complete = [bp for bp in approved if bp["is_complete"]]
     not_complete = [bp for bp in approved if not bp["is_complete"]]
 
-    print ""
-    print "Unapproved blueprints:"
-    for bp in not_approved:
-        print bp["web_link"]
-
-    print ""
-    print "Approved blueprints:"
-    print len(approved)
-
-    print ""
-    print "Completed blueprints:"
-    print len(complete)
-    for bp in complete:
-        print bp["web_link"]
-
-    print ""
-    print "Not complete:"
-    print len(not_complete)
-
-    return not_complete, not_approved
+    return approved, not_approved, complete, not_complete
 
 
 def _get_blueprint(message):
@@ -158,10 +153,8 @@ def get_patches(project="nova"):
     filename = "%s-patches.txt" % project
     try:
         with open(filename, "r+b") as f:
-            print "Loading from cache file."
             return json.load(f)
-    except Exception, e:
-        print e
+    except:
         print "Cache could not load."
 
     gerrit = gerritlib.gerrit.Gerrit("review.openstack.org", GERRIT_USER, 29418)
@@ -193,9 +186,28 @@ def get_blueprint_patches(all_patches):
 
 def main():
     primitive_blueprints = get_milestone_bluerpints()
-    not_complete, not_approved = split_up_blueprints(primitive_blueprints)
+    approved, not_approved, complete, not_complete = split_up_blueprints(primitive_blueprints)
     patches = get_patches()
     patches_by_blueprint = get_blueprint_patches(patches)
+
+    print "Unapproved blueprints:"
+    print len(not_approved)
+    for bp in not_approved:
+        print bp["web_link"]
+
+    print ""
+    print "Approved blueprints:"
+    print len(approved)
+
+    print ""
+    print "Completed blueprints:"
+    print len(complete)
+    for bp in complete:
+        print bp["web_link"]
+
+    print ""
+    print "Not complete:"
+    print len(not_complete)
 
     with_patches = []
     with_patches_names = []
