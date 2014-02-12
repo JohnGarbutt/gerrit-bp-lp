@@ -88,7 +88,8 @@ def get_milestone_bluerpints(project="nova", series="icehouse", milestone="iceho
     not_approved = [bp for bp in icehouse if not bp.direction_approved]
     print ""
     print "Unapproved blueprints:"
-    print [bp.name for bp in not_approved]
+    for bp in not_approved:
+        print bp.web_link
 
     approved = [bp for bp in icehouse if bp.direction_approved]
     print ""
@@ -143,30 +144,51 @@ def get_blueprint_patches(project="nova"):
 
 def main():
     not_complete, not_approved = get_milestone_bluerpints()
-
     patches_by_blueprint = get_blueprint_patches()
+
+    with_patches_names = []
+    no_patches_names = []
+    for bp in not_complete:
+        patches = patches_by_blueprint.get(bp.name)
+        if patches:
+            with_patches.append(bp)
+        else:
+            no_patches.append(bp)
+
+    with_patches = [bp for bp in not_complete if bp.name in with_patches_names]
+    no_patches = [bp for bp in not_complete if bp.name in no_patches_names]
+
+    unexpected_bp_patches = {}
+    for bp_name, patches in patches_by_blueprint:
+        if (bp_name not in no_patches_names) and (bp_name not in with_patches_names):
+            for patch in patches:
+                if patch["status"].lower() == "new":
+                    patch["bp_name"] = bp_name
+                    unexpected_bp_patches.append(patch)
 
     print ""
     print "Not complete blueprint with patches:"
-    print len(not_complete)
+    print len(with_patches)
     print ""
-    no_patches = []
-    for bp in not_complete:
+    for bp in with_patches:
+        print "%s  status:%s" % (bp.web_link, bp.implementation_status)
         patches = patches_by_blueprint.get(bp.name)
-        if not patches:
-            no_patches.append(bp)
-        else:
-            print "%s  status:%s" % (bp.web_link, bp.implementation_status)
-            for patch in patches:
-                print "%s  open:%s status:%s subject:%s" % (patch["url"], patch["open"], patch["status"], patch["subject"])
-        print ""
+        for patch in patches:
+            print "%s  open:%s status:%s subject:%s" % (patch["url"], patch["open"], patch["status"], patch["subject"])
 
     print ""
     print "Not complete blueprint with no patches:"
-    print len(not_complete)
+    print len(no_patches)
     print ""
-    for bp in no_patches:
+    for bp_name in no_patches:
         print "%s  status:%s" % (bp.web_link, bp.implementation_status)
+
+    print ""
+    print "Patches for blueprints we don't expect:"
+    print len(unexpected_bp_patches)
+    print ""
+    for patch in unexpected_bp_patches:
+        print "%s  blueprint:%s" % (patch["url"], patch["bp_name"])
 
 
 if __name__ == "__main__":
