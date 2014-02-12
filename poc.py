@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import json
 import os
 import re
 import pprint
@@ -67,7 +68,28 @@ def _inspect_object(obj):
     print obj.lp_operations
 
 
+def _blueprint_to_primative(bp):
+    primative = {}
+
+    primative["milestone"] = bp.milestone.name.lower()
+    primative["direction_approved"] = bp.direction_approved
+    primative["is_complete"] = bp.is_complete
+    primative["name"] = bp.name
+    primative["web_link"] = bp.web_link
+    primative["implementation_status"] = bp.implementation_status
+
+    return primative
+
+
 def get_milestone_bluerpints(project="nova", series="icehouse", milestone="icehouse-3"):
+    filename = "%s-%s-blueprints.txt" % (project, milestone)
+    try:
+        with open(filename, "r+b") as f:
+            print "Loading from cache file."
+            return json.load(f)
+    except:
+        print "Cache could not load."
+
     lp = launchpad.Launchpad.login_anonymously('grabbing BPs',
                                                'production',
                                                LPCACHEDIR,
@@ -80,30 +102,41 @@ def get_milestone_bluerpints(project="nova", series="icehouse", milestone="iceho
     milestone = [m for m in series_icehouse.active_milestones if milestone == m.name.lower()][0]
     pprint.pprint(milestone)
 
-    #TODO - need to cache these really...
     icehouse = [bp for bp in proj.all_specifications if bp.milestone and milestone == bp.milestone]
     print "%s blueprints:" % milestone
     print len(icehouse)
 
-    not_approved = [bp for bp in icehouse if not bp.direction_approved]
+    primitive_blueprints = [_blueprint_to_primative(bp) for bp in icehouse]
+
+    with open(filename, 'w+b') as f:
+        f.write(json.dumps(primitive_blueprints))
+        print "Saved to %s" % filename
+
+    return primitive_blueprints
+
+
+def split_up_blueprints(primitive_blueprints):
+    not_approved = [bp for bp in primitive_blueprints if not bp["direction_approved"]]
+    approved = [bp for bp in primitive_blueprints if bp["direction_approved"]]
+
+    complete = [bp for bp in approved if not bp["is_complete"]]
+    not_complete = [bp for bp in approved if not bp["is_complete"]]
+
     print ""
     print "Unapproved blueprints:"
     for bp in not_approved:
-        print bp.web_link
+        print bp["web_link"]
 
-    approved = [bp for bp in icehouse if bp.direction_approved]
     print ""
     print "Approved blueprints:"
     print len(approved)
 
-    complete = [bp for bp in approved if not bp.is_complete]
     print ""
     print "Completed blueprints:"
     print len(complete)
     for bp in complete:
-        print bp.web_link
+        print bp["web_link"]
 
-    not_complete = [bp for bp in approved if not bp.is_complete]
     print ""
     print "Not complete:"
     print len(not_complete)
@@ -118,17 +151,33 @@ def _get_blueprint(message):
     if not m:
         return None
     else:
-        return m.group(2)
+        return m.group(2).rstrip('.').rstrip(',').lstrip('/')
 
 
-def get_blueprint_patches(project="nova"):
-    """Return a list of patches with unapproved blueprints."""
-    result = {}  # blueprint: [patches]
+def get_patches(project="nova"):
+    filename = "%s-patches.txt" % project
+    try:
+        with open(filename, "r+b") as f:
+            print "Loading from cache file."
+            return json.load(f)
+    except Exception, e:
+        print e
+        print "Cache could not load."
+
     gerrit = gerritlib.gerrit.Gerrit("review.openstack.org", GERRIT_USER, 29418)
     print "Fetching patches..."
     all_patches = gerrit.bulk_query('--commit-message project:openstack/%s' % project)
     print len(all_patches)
 
+    with open(filename, 'w+b') as f:
+        f.write(json.dumps(all_patches))
+        print "Saved to %s" % filename
+
+    return all_patches
+
+
+def get_blueprint_patches(all_patches):
+    result = {}  # blueprint: [patches]
     for patch in all_patches:
         msg = patch.get('commitMessage')
         if msg is None:
@@ -143,37 +192,31 @@ def get_blueprint_patches(project="nova"):
 
 
 def main():
-    not_complete, not_approved = get_milestone_bluerpints()
-    patches_by_blueprint = get_blueprint_patches()
+    primitive_blueprints = get_milestone_bluerpints()
+    not_complete, not_approved = split_up_blueprints(primitive_blueprints)
+    patches = get_patches()
+    patches_by_blueprint = get_blueprint_patches(patches)
 
     with_patches = []
     with_patches_names = []
     no_patches = []
     no_patches_names = []
     for bp in not_complete:
-        patches = patches_by_blueprint.get(bp.name)
+        patches = patches_by_blueprint.get(bp["name"])
         if patches:
             with_patches.append(bp)
-            with_patches_names.append(bp.name)
+            with_patches_names.append(bp["name"])
         else:
             no_patches.append(bp)
-            no_patches_names.append(bp)
-
-    unexpected_bp_patches = {}
-    for bp_name, patches in patches_by_blueprint:
-        if (bp_name not in no_patches_names) and (bp_name not in with_patches_names):
-            for patch in patches:
-                if patch["status"].lower() == "new":
-                    patch["bp_name"] = bp_name
-                    unexpected_bp_patches.append(patch)
+            no_patches_names.append(bp["name"])
 
     print ""
     print "Not complete blueprint with patches:"
     print len(with_patches)
-    print ""
     for bp in with_patches:
-        print "%s  status:%s" % (bp.web_link, bp.implementation_status)
-        patches = patches_by_blueprint.get(bp.name)
+        print ""
+        print "%s  status:%s" % (bp["web_link"], bp["implementation_status"])
+        patches = patches_by_blueprint.get(bp["name"])
         for patch in patches:
             print "%s  open:%s status:%s subject:%s" % (patch["url"], patch["open"], patch["status"], patch["subject"])
 
@@ -182,14 +225,22 @@ def main():
     print len(no_patches)
     print ""
     for bp_name in no_patches:
-        print "%s  status:%s" % (bp.web_link, bp.implementation_status)
+        print "%s  status:%s" % (bp["web_link"], bp["implementation_status"])
+
+    unexpected_bp_patches = []
+    for bp_name, patches in patches_by_blueprint.iteritems():
+        if (bp_name not in no_patches_names) and (bp_name not in with_patches_names):
+            for patch in patches:
+                if patch["status"].lower() == "new":
+                    patch["bp_name"] = bp_name
+                    unexpected_bp_patches.append(patch)
 
     print ""
     print "Patches for blueprints we don't expect:"
     print len(unexpected_bp_patches)
     print ""
     for patch in unexpected_bp_patches:
-        print "%s  blueprint:%s" % (patch["url"], patch["bp_name"])
+        print "%s  blueprint: %s" % (patch["url"], patch["bp_name"])
 
 
 if __name__ == "__main__":
