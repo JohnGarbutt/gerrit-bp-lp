@@ -146,17 +146,18 @@ def main():
     not_complete, not_approved = get_milestone_bluerpints()
     patches_by_blueprint = get_blueprint_patches()
 
+    with_patches = []
     with_patches_names = []
+    no_patches = []
     no_patches_names = []
     for bp in not_complete:
         patches = patches_by_blueprint.get(bp.name)
         if patches:
             with_patches.append(bp)
+            with_patches_names.append(bp.name)
         else:
             no_patches.append(bp)
-
-    with_patches = [bp for bp in not_complete if bp.name in with_patches_names]
-    no_patches = [bp for bp in not_complete if bp.name in no_patches_names]
+            no_patches_names.append(bp)
 
     unexpected_bp_patches = {}
     for bp_name, patches in patches_by_blueprint:
