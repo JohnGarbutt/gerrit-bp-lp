@@ -159,7 +159,11 @@ def get_patches(project="nova"):
 
     gerrit = gerritlib.gerrit.Gerrit("review.openstack.org", GERRIT_USER, 29418)
     print "Fetching patches..."
-    all_patches = gerrit.bulk_query('--commit-message project:openstack/%s' % project)
+    all_patches = []
+    all_status = ["open", "abandoned", "merged"]
+    for status in all_status:
+        result = gerrit.bulk_query('--commit-message project:openstack/%s status:%s' % (project, status))
+        all_patches += result
     print len(all_patches)
 
     with open(filename, 'w+b') as f:
@@ -182,6 +186,16 @@ def get_blueprint_patches(all_patches):
                 result[bp] = []
             result[bp].append(patch)
     return result
+
+
+def group_blueprint_by_status(with_patches):
+    blueprints_by_status = {}
+    for blueprint in with_patches:
+        status = str(blueprint["implementation_status"])
+        if status not in blueprints_by_status:
+            blueprints_by_status[status] = []
+        blueprints_by_status[status].append(blueprint)
+    return blueprints_by_status
 
 
 def main():
@@ -222,22 +236,38 @@ def main():
             no_patches.append(bp)
             no_patches_names.append(bp["name"])
 
+    blueprints_by_status_with_patches = group_blueprint_by_status(with_patches)
+
+    print ""
     print ""
     print "Not complete blueprint with patches:"
     print len(with_patches)
-    for bp in with_patches:
+    print "======================================="
+    print ""
+    for status, blueprints in blueprints_by_status_with_patches.iteritems():
         print ""
-        print "%s  status:%s" % (bp["web_link"], bp["implementation_status"])
-        patches = patches_by_blueprint.get(bp["name"])
-        for patch in patches:
-            print "%s  open:%s status:%s subject:%s" % (patch["url"], patch["open"], patch["status"], patch["subject"])
+        print "Status: %s" % status
+        print "==========================="
+        for bp in blueprints:
+            print ""
+            print "%s" % bp["web_link"]
+            patches = patches_by_blueprint.get(bp["name"])
+            for patch in patches:
+                print "%s  open:%s status:%s subject:%s" % (patch["url"], patch["open"], patch["status"], patch["subject"])
 
+    print ""
     print ""
     print "Not complete blueprint with no patches:"
     print len(no_patches)
+    print "======================================="
     print ""
-    for bp_name in no_patches:
-        print "%s  status:%s" % (bp["web_link"], bp["implementation_status"])
+    blueprints_by_status_no_patches = group_blueprint_by_status(no_patches)
+    for status, blueprints in blueprints_by_status_with_patches.iteritems():
+        print ""
+        print "Status: %s" % status
+        print "==========================="
+        for bp in blueprints:
+            print "%s  status:%s" % (bp["web_link"], bp["implementation_status"])
 
     unexpected_bp_patches = []
     for bp_name, patches in patches_by_blueprint.iteritems():
@@ -247,6 +277,7 @@ def main():
                     patch["bp_name"] = bp_name
                     unexpected_bp_patches.append(patch)
 
+    print ""
     print ""
     print "Patches for blueprints we don't expect:"
     print len(unexpected_bp_patches)
