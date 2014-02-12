@@ -110,18 +110,6 @@ def get_milestone_bluerpints(project="nova", series="icehouse", milestone="iceho
     return not_complete, not_approved
 
 
-def get_invalid_blueprints(project, valid):
-    lp = launchpad.Launchpad.login_anonymously('grabbing BPs',
-                                               'production',
-                                               LPCACHEDIR,
-                                               version='devel')
-    proj = lp.projects(project)
-    if "openstack" not in proj.project_group.name:
-        raise Exception("Not a OpenStack project!")
-    all_bps = [bp.name for bp in proj.all_specifications]
-    return [x for x in all_bps if x not in valid]
-
-
 def _get_blueprint(message):
     """If no blueprint, return None."""
     #taken from jeepyb
@@ -132,15 +120,20 @@ def _get_blueprint(message):
         return m.group(2)
 
 
-def get_blueprint_patches():
+def get_blueprint_patches(project="nova"):
     """Return a list of patches with unapproved blueprints."""
     result = {}  # blueprint: [patches]
     gerrit = gerritlib.gerrit.Gerrit("review.openstack.org", GERRIT_USER, 29418)
-    for patch in gerrit.bulk_query('--commit-message project:openstack/nova'):
+    print "Fetching patches..."
+    all_patches = gerrit.bulk_query('--commit-message project:openstack/%s' % project)
+    print len(all_patches)
+
+    for patch in all_patches:
         msg = patch.get('commitMessage')
         if msg is None:
             continue
         bp = _get_blueprint(msg)
+        # TODO - do bugs here too
         if bp:
             if bp not in result:
                 result[bp] = []
@@ -157,15 +150,23 @@ def main():
     print "Not complete blueprint with patches:"
     print len(not_complete)
     print ""
+    no_patches = []
     for bp in not_complete:
-        print "%s  status:%s" % (bp.web_link, bp.implementation_status)
         patches = patches_by_blueprint.get(bp.name)
         if not patches:
-            print "No patches"
+            no_patches.append(bp)
         else:
+            print "%s  status:%s" % (bp.web_link, bp.implementation_status)
             for patch in patches:
                 print "%s  open:%s status:%s subject:%s" % (patch["url"], patch["open"], patch["status"], patch["subject"])
         print ""
+
+    print ""
+    print "Not complete blueprint with no patches:"
+    print len(not_complete)
+    print ""
+    for bp in no_patches:
+        print "%s  status:%s" % (bp.web_link, bp.implementation_status)
 
 
 if __name__ == "__main__":
