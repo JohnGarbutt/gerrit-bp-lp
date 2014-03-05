@@ -43,33 +43,47 @@ def get_blueprints(message):
 
 
 def in_bps_list(bp, bps_list):
-    return bp in bps_list or (bp[-1:]=='.' and bp[:-1] in bps_list)
+    return bp in bps_list or (bp[-1:] == '.' and bp[:-1] in bps_list)
 
 
 def get_unapproved_blueprint_patches(approved_blueprints, invalid_blueprints):
     """Return a list of patches with unapproved blueprints."""
     result = {}  # URL: BP
     gerrit = gerritlib.gerrit.Gerrit("review.openstack.org", "jogo", 29418)
-    for patch in gerrit.bulk_query('--commit-message project:openstack/nova status:open'):
+    for patch in gerrit.bulk_query('--commit-message --all-approvals project:openstack/nova status:open'):
         msg = patch.get('commitMessage')
         if msg is None:
+            continue
+        if is_blocked(patch):
             continue
         bps = get_blueprints(msg)
         if len(bps) > 0:
             for bp in bps:
                 if not in_bps_list(bp, approved_blueprints):
                     if in_bps_list(bp, invalid_blueprints):
-                        result[patch['url']]=bp
+                        result[patch['url']] = bp
                     else:
-                        result[patch['url']]=("%s (unknown)" % bp)
+                        result[patch['url']] = ("%s (unknown)" % bp)
     return result
+
+
+def is_blocked(event):
+    """Return False if the patch has a -2."""
+    for patch in event['patchSets']:
+        approvals = patch.get('approvals')
+        if approvals is None:
+            continue
+        for review in approvals:
+            if review['value'] == '-2':
+                return True
+    return False
 
 
 def main():
     approved_blueprints = get_approved_bluerpint("nova")
     invalid_blueprints = get_invalid_blueprints("nova", approved_blueprints)
-    patches =  get_unapproved_blueprint_patches(approved_blueprints, invalid_blueprints)
-    print "patches with unapproved blueprints"
+    patches = get_unapproved_blueprint_patches(approved_blueprints, invalid_blueprints)
+    print "patches with unapproved blueprints (and no -2)"
     for k in patches:
         print "%s: %s" % (k, patches[k])
 
