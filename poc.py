@@ -49,22 +49,45 @@ def in_bps_list(bp, bps_list):
 def get_unapproved_blueprint_patches(approved_blueprints, invalid_blueprints):
     """Return a list of patches with unapproved blueprints."""
     result = {}  # URL: BP
-    gerrit = gerritlib.gerrit.Gerrit("review.openstack.org", "jogo", 29418)
-    for patch in gerrit.bulk_query('--commit-message --all-approvals project:openstack/nova status:open'):
-        msg = patch.get('commitMessage')
-        if msg is None:
-            continue
-        if is_blocked(patch):
-            continue
-        bps = get_blueprints(msg)
-        if len(bps) > 0:
-            for bp in bps:
-                if not in_bps_list(bp, approved_blueprints):
-                    if in_bps_list(bp, invalid_blueprints):
-                        result[patch['url']] = bp
-                    else:
-                        result[patch['url']] = ("%s (unknown)" % bp)
-    return result
+    gerrit = gerritlib.gerrit.Gerrit("review.openstack.org", "johngarbutt", 29418)
+
+    sortkey = None
+    cmd = '--commit-message --all-approvals project:openstack/nova status:open'
+
+    while True:
+        # Get a small set the first time so we can get to checking
+        # againt the cache sooner
+        if sortkey:
+            cmd += ' resume_sortkey:%s' % sortkey
+        else:
+            cmd += ' limit:200'
+
+        last_patch = None
+        for patch in gerrit.bulk_query(cmd):
+            if 'rowCount' in patch:
+                if patch['rowCount'] == 0:
+                    return result
+                elif last_patch:
+                    sortkey = last_patch['sortKey']
+                else:
+                    raise Exception("there are no patches")
+            last_patch = patch
+
+            msg = patch.get('commitMessage')
+            if msg is None:
+                continue
+            if is_blocked(patch):
+                continue
+            bps = get_blueprints(msg)
+            if len(bps) > 0:
+                for bp in bps:
+                    if not in_bps_list(bp, approved_blueprints):
+                        if in_bps_list(bp, invalid_blueprints):
+                            result[patch['url']] = bp
+                        else:
+                            result[patch['url']] = ("%s (unknown)" % bp)
+        if not last_patch:
+            return result
 
 
 def is_blocked(event):
