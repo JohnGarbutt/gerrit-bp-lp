@@ -116,14 +116,19 @@ def main():
     invalid_bp_patches = {}
     for patch_url, bp in patches.items():
         if bp in approved_blueprints:
-            approved_bp_patches[bp] = patch_url
+            approved_bp_patches.setdefault(bp, [])
+            approved_bp_patches[bp].append(patch_url)
         else:
-            invalid_bp_patches[bp] = patch_url
+            invalid_bp_patches.setdefault(bp, [])
+            invalid_bp_patches[bp].append(patch_url)
 
     print "patches with unapproved blueprints (and no -2)"
     print
     for k in invalid_bp_patches:
-        print "%s: %s" % (invalid_bp_patches[k], k)
+        print "%s:" % k
+        for patch in invalid_bp_patches[k]:
+            print "* %s" % patch
+        print
 
     print
     print "approved bps and their patches"
@@ -131,7 +136,8 @@ def main():
     for bp in approved_blueprints:
         print "https://blueprints.launchpad.net/nova/+spec/%s" % bp
         if bp in approved_bp_patches:
-            print "* " + approved_bp_patches[bp]
+            for patch in approved_bp_patches[bp]:
+                print "* %s" % patch
         else:
             # TODO - what about current BP state?
             print "* no patches"
