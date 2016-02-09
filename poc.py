@@ -51,28 +51,31 @@ def get_blueprint_patches(approved_blueprints, invalid_blueprints):
     result = {}  # URL: BP
     gerrit = gerritlib.gerrit.Gerrit("review.openstack.org", "johngarbutt", 29418)
 
-    sortkey = None
-    cmd = '--commit-message --all-approvals project:openstack/nova status:open'
+    #sortkey = None
+    start_at = 0
+    cmd_start = '--commit-message --all-approvals'
+    cmd_end = ' project:openstack/nova status:open'
 
     while True:
         # Get a small set the first time so we can get to checking
         # againt the cache sooner
-        if sortkey:
-            cmd += ' resume_sortkey:%s' % sortkey
-        else:
-            cmd += ' limit:200'
+        cmd = cmd_start
+        if start_at:
+            cmd += ' --start %s' % start_at
+        cmd += cmd_end
+
+        cmd += ' limit:200'
 
         last_patch = None
         for patch in gerrit.bulk_query(cmd):
             if 'rowCount' in patch:
                 if patch['rowCount'] == 0:
                     return result
-                elif last_patch:
-                    sortkey = last_patch['sortKey']
-                else:
+                elif not last_patch:
                     raise Exception("there are no patches")
             last_patch = patch
 
+            start_at += 1
             msg = patch.get('commitMessage')
             if msg is None:
                 continue
