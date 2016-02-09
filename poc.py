@@ -46,7 +46,7 @@ def in_bps_list(bp, bps_list):
     return bp in bps_list or (bp[-1:] == '.' and bp[:-1] in bps_list)
 
 
-def get_unapproved_blueprint_patches(approved_blueprints, invalid_blueprints):
+def get_blueprint_patches(approved_blueprints, invalid_blueprints):
     """Return a list of patches with unapproved blueprints."""
     result = {}  # URL: BP
     gerrit = gerritlib.gerrit.Gerrit("review.openstack.org", "johngarbutt", 29418)
@@ -80,12 +80,14 @@ def get_unapproved_blueprint_patches(approved_blueprints, invalid_blueprints):
                 continue
             bps = get_blueprints(msg)
             if len(bps) > 0:
+                added_bp = False
                 for bp in bps:
-                    if not in_bps_list(bp, approved_blueprints):
-                        if in_bps_list(bp, invalid_blueprints):
+                    if in_bps_list(bp, approved_blueprints) or \
+                        in_bps_list(bp, invalid_blueprints):
                             result[patch['url']] = bp
-                        else:
-                            result[patch['url']] = ("%s (unknown)" % bp)
+                            added_bp = True
+                if not added_bp:
+                    result[patch['url']] = ("%s (unknown)" % bp)
         if not last_patch:
             return result
 
@@ -105,10 +107,32 @@ def is_blocked(event):
 def main():
     approved_blueprints = get_approved_bluerpint("nova")
     invalid_blueprints = get_invalid_blueprints("nova", approved_blueprints)
-    patches = get_unapproved_blueprint_patches(approved_blueprints, invalid_blueprints)
+    patches = get_blueprint_patches(approved_blueprints, invalid_blueprints)
+
+    approved_bp_patches = {}
+    invalid_bp_patches = {}
+    for patch_url, bp in patches.items():
+        if bp in approved_blueprints:
+            approved_bp_patches[bp] = patch_url
+        else:
+            invalid_bp_patches[bp] = patch_url
+
     print "patches with unapproved blueprints (and no -2)"
-    for k in patches:
-        print "%s: %s" % (k, patches[k])
+    print
+    for k in invalid_bp_patches:
+        print "%s: %s" % (invalid_bp_patches[k], k)
+
+    print
+    print "approved bps and their patches"
+    print
+    for bp in approved_blueprints:
+        print "https://blueprints.launchpad.net/nova/+spec/%s" % bp
+        if bp in approved_bp_patches:
+            print "* " + approved_bp_patches[bp]
+        else:
+            # TODO - what about current BP state?
+            print "* no patches"
+        print
 
 if __name__ == "__main__":
     main()
